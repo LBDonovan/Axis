@@ -92,6 +92,9 @@ bool Motor::home(){
 	
 	return homed;
 }
+void Motor::doneHoming(){
+	homing = false;
+}
 
 void Motor::setPosition(int position){
 	i2c.write(address, {
@@ -102,9 +105,63 @@ void Motor::setPosition(int position){
 		low_byte(position*direction)
 	});
 }
+void Motor::setVelocity(int velocity){
+	i2c.write(address, {
+		VELOCITY_INSTRUCTION,
+		highest_byte(velocity*direction),
+		higher_byte(velocity*direction),
+		high_byte(velocity*direction),
+		low_byte(velocity*direction)
+	});
+}
+void Motor::setMaxVelocity(int velocity){
+	i2c.write(address, {
+		MAX_VELOCITY_INSTRUCTION,
+		highest_byte(velocity),
+		higher_byte(velocity),
+		high_byte(velocity),
+		low_byte(velocity)
+	});
+}
+void Motor::setAcceleration(int acceleration){
+	i2c.write(address, {
+		ACCELERATION_INSTRUCTION,
+		highest_byte(acceleration),
+		higher_byte(acceleration),
+		high_byte(acceleration),
+		low_byte(acceleration)
+	});
+}
+void Motor::setMicrostepping(int microstepping){
+	i2c.write(address, {
+		MICROSTEPPING_INSTRUCTION,
+		low_byte(microstepping)
+	});
+}
+void Motor::setOffset(int offset){
+	i2c.write(address, {
+		HOMING_OFFSET_INSTRUCTION,
+		highest_byte(offset),
+		higher_byte(offset),
+		high_byte(offset),
+		low_byte(offset)
+	});
+	go();
+}
 
 void Motor::go(){
 	i2c.write(address, {GO_INSTRUCTION});
 	status = -1;
 }
-
+void Motor::stopNow(){
+	char buffer[5] = {
+		VELOCITY_INSTRUCTION,
+		0,
+		0,
+		0,
+		0
+	};
+	i2c.writeNow(address, buffer, 5);
+	char buf[1] = {GO_INSTRUCTION};
+	i2c.writeNow(address, buf, 1);
+}
