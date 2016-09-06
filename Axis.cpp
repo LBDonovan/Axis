@@ -1,186 +1,174 @@
+/***** Axis.cpp *****/
 #include <Axis.h>
 
-std::vector<I2CMessage*> I2CMessages;
+int Axis::status[NUM_MOTORS] = {-1};
 
-extern int motors[NUM_MOTORS+1];
-extern int status[NUM_MOTORS+1];
-extern int microstepping;
+void Axis::receiveCallbackRender(int address, std::vector<char> buffer){
+	if (!buffer.size()){
+		Axis::status[address] = -1;
+	} else {
+	    Axis::status[address] = (int)buffer[0];
+	}
+	if (!address){
+		rt_printf("%i received %i\n", address, buffer[0]);
+	}
+}
 
-AuxiliaryTask I2CSend;
-AuxiliaryTask I2CRead;
-
-bool sendingI2C = false;
-bool readingI2C = false;
-
-int getStatus(){
-    int statusValue = 0;
+bool Axis::setup(){
+	// open I2C bus 1 (/dev/i2c-1)
+    i2c.setup(1);
+    
+    for (int i=0; i<NUM_MOTORS; i++){
+        i2c.addSlave(i+1);
+    }
+    
+    i2c.onReceive(Axis::receiveCallbackRender);
+    
+    // read a single byte from each ATTINY
+    // If the ATTINY has booted correctly it should return 6
+    bool booted = true;
     for (int i=1; i<=NUM_MOTORS; i++){
-        if (status[i] != 0){
-            statusValue = status[i];
-        }
-    }
-    return statusValue;
-}
-
-void createAuxTasks(){
-    I2CSend = Bela_createAuxiliaryTask(i2cSendTask, BELA_AUDIO_PRIORITY-1, "AxisI2CSendTask");
-    I2CRead = Bela_createAuxiliaryTask(i2cReadTask, BELA_AUDIO_PRIORITY-2, "AxisI2CReadTask");
-}
-
-void scheduleTasks(){
-    /*if (!sendingI2C){
-        sendingI2C = true;
-        Bela_scheduleAuxiliaryTask(I2CSend);
-    } else {
-        //rt_printf("Can't send I2C, aux task is busy\n");
-    }*/
-    if (!readingI2C){
-        readingI2C = true;
-        Bela_scheduleAuxiliaryTask(I2CRead);
-    } else {
-        //rt_printf("Can't read I2C, aux task is busy\n");
-    }
-}
-
-void i2cSendTask(){
-    for (unsigned int i=0; i<I2CMessages.size(); i++){
-        if (write(motors[I2CMessages[i]->address], &(I2CMessages[i]->buffer[0]), I2CMessages[i]->buffer.size()) != (int)I2CMessages[i]->buffer.size()) {
-            // i2c write failed
-            rt_printf("Device %i not responding\n", i);
-        }
-        usleep(100);
-    }
-    I2CMessages.clear();
-    sendingI2C = false;
-}
-
-void i2cReadTask(){
-    char buf[1];
-    for (int i=1; i<=NUM_MOTORS; i++){
-        if (read(motors[i], buf, 1) != 1) {
+    	std::vector<char> buf = i2c.requestNow(i, 1);
+    	if (buf.size() != 1) {
             // i2c read failed
             rt_printf("Device %i not responding\n", i);
-            status[i] = -1;
+            booted = false;
         } else {
-            status[i] = (int)buf[0];
+            if ((int)buf[0] == 6){
+                rt_printf("Device %i is awake!\n", i);
+            } else {
+                rt_printf("Device %i wrong response: %d\n", i, buf[0]);
+                booted = false;
+            }
         }
     }
-    readingI2C = false;
-    //rt_printf("status read\n");
+    
+    usleep(100000);
+    
+    return booted;
+}
+void Axis::cleanup(){
+	i2c.cleanup();
 }
 
+char Axis::highest_byte(int in){
+	return (char)((in >> 24) & 0xFF);
+}
+char Axis::higher_byte(int in){
+	return (char)((in >> 16) & 0xFF);
+}
+char Axis::high_byte(int in){
+	return (char)((in >> 8) & 0xFF);
+}
+char Axis::low_byte(int in){
+	return (char)(in & 0xFF);
+}
 
+void Axis::requestAll(){
+	for (int i=1; i<=NUM_MOTORS; i++){
+		i2c.request(i, 1);
+	}
+}
 
-void setConstantVelocity(int vel, bool alternating){
-    
-    if (!sendingI2C){
-        sendingI2C = true;
-        Bela_scheduleAuxiliaryTask(I2CSend);
-    } else {
-        //rt_printf("busy\n");
-        return;
-    }
-    
-    int sign = -1;
-    int velocity = vel;
-    
-    for (int i=1; i<=NUM_MOTORS; i++){
-        
-        if (alternating){
-            sign *= (-1);
-            velocity = vel*sign;
+bool Axis::home(){
+	if (!homing){
+		sendHome();
+		homingIterations = 0;
+		for (int i=1; i<=NUM_MOTORS; i++){
+			homeStatus[i] = 0;	// not homed
+		}
+	} else {
+		if (homingIterations > 44100){
+			if (!(homingIterations%44100)){
+				rt_printf("HI %i, %i\n", homeStatus[0], Axis::status[0]);
+			}
+			for (int i=1; i<=NUM_MOTORS; i++){
+				if (homingIterations < (44100+22050)){	// first quarter second of homing
+					if (Axis::status[i] == 0 && homeStatus[i] == 0){	// rehoming needed
+						rehome(i);
+					}
+				} else {	// normal homing period
+					if (homeStatus[i] == 0 && Axis::status[i] == 0){	// motor is now homed
+						homeStatus[i] = 1; // homed
+						rt_printf("motor %i homed in %fs\n", i, (float)homingIterations/44100.0f);
+					} else if (homeStatus[i] == 2 && Axis::status[i] == 0){		// motor is seeking
+						rehome(i);
+					}
+				}
+			}
+		}
+	}
+	homingIterations += 1;
+
+	bool homeFinished = true;
+	for (int i=1; i<=NUM_MOTORS; i++){
+		if (homeStatus[i] != 1){
+			homeFinished = false;
+		}
+	}
+	return homeFinished;
+}
+void Axis::rehome(int address){
+	// printf("rehome %i\n", address);
+	if (homeStatus[address] == 0){	// not yet rehomed, move it a bit
+		rt_printf("%i starting rehome shift (%i, %i)\n", address, Axis::status[address], homeStatus[address]);
+		int position = 200*32;
+		if (!(address % 2)){
+            position *= -1;
         }
-        
-        I2CMessage* msg = new I2CMessage(i);
-        
-        msg->buffer.push_back(2);                         // instruction byte
-        msg->buffer.push_back((velocity >> 8) & 0xFF);    // high byte
-        msg->buffer.push_back(velocity & 0xFF);           // low byte
-        
-        I2CMessages.push_back(msg);
-        
-        //rt_printf("motor %i velocity set to %i\n", i, velocity);
-        
+		i2c.write(address, {
+    		0x1, 					// instruction
+    		highest_byte(position),
+    		higher_byte(position),
+    		high_byte(position),
+    		low_byte(position)
+    	});
+    	i2c.write(address, {(char)(10)});
+    	homeStatus[address] = 2;
+    	Axis::status[address] = -1;
+	} else if (homeStatus[address] == 2){	// finished moving, do rehome
+		rt_printf("%i starting rehome\n", address);
+		int velocity = 2000;
+		if (!(address % 2)){
+            velocity *= -1;
+        }
+		i2c.write(address, {
+    		0x6, 					// instruction
+    		high_byte(velocity), 	// velocity high byte
+    		low_byte(velocity)		// velocity low byte
+    	});
+    	homeStatus[address] = 0;
+    	Axis::status[address] = -1;
+	}
+}
+
+void Axis::sendHome(){
+	int sign = 1, velocity, vel = 2000;
+	for (int i=1; i<=NUM_MOTORS; i++){
+        sign *= (-1);
+        velocity = vel*sign;
+        //rt_printf("address: %i, bytes: %i, %i, %i\n", i, 0x6, (int)high_byte(velocity), (int)low_byte(velocity));
+    	i2c.write(i, {
+    		0x6, 					// instruction
+    		high_byte(velocity), 	// velocity high byte
+    		low_byte(velocity)		// velocity low byte
+    	});
+    	/*char message[3];
+        message[0] = 6;                         // instruction byte
+        message[1] = (velocity >> 8) & 0xFF;    // high byte
+        message[2] = velocity & 0xFF;           // low byte
+        i2c.write(i, message, 3);*/
+        homing = true;
     }
-    
-    //go(0);
-
 }
 
-void setPosition(int motor, int position){
-    
-    I2CMessage* msg = new I2CMessage(motor);
-        
-    msg->buffer.push_back(1);                         // instruction byte
-    msg->buffer.push_back((position >> 8) & 0xFF);    // high byte
-    msg->buffer.push_back(position & 0xFF);           // low byte
-    
-    I2CMessages.push_back(msg);
-    
-    //rt_printf("motor %i position set to %i\n", motor, position);
-    
-}
-
-void setVelocity(int motor, int velocity){
-    
-    I2CMessage* msg = new I2CMessage(motor);
-        
-    msg->buffer.push_back(2);                         // instruction byte
-    msg->buffer.push_back((velocity >> 8) & 0xFF);    // high byte
-    msg->buffer.push_back(velocity & 0xFF);           // low byte
-    
-    I2CMessages.push_back(msg);
-    
-    //rt_printf("motor %i velocity set to %i\n", motor, velocity);
-    
-}
-
-void setMaxVelocity(int motor, int velocity){
-    
-    I2CMessage* msg = new I2CMessage(motor);
-        
-    msg->buffer.push_back(3);                         // instruction byte
-    msg->buffer.push_back((velocity >> 8) & 0xFF);    // high byte
-    msg->buffer.push_back(velocity & 0xFF);           // low byte
-    
-    I2CMessages.push_back(msg);
-    
-}
-
-void setAcceleration(int motor, int acceleration){
-    
-    I2CMessage* msg = new I2CMessage(motor);
-        
-    msg->buffer.push_back(4);                         // instruction byte
-    msg->buffer.push_back((acceleration >> 8) & 0xFF);    // high byte
-    msg->buffer.push_back(acceleration & 0xFF);           // low byte
-    
-    I2CMessages.push_back(msg);
-    
-}
-
-void setMicrostepping(int motor, int newMicroStepping){
-    
-    microstepping = newMicroStepping;
-    
-    I2CMessage* msg = new I2CMessage(motor);
-        
-    msg->buffer.push_back(5);                         // instruction byte
-    msg->buffer.push_back(microstepping); 
-    
-    I2CMessages.push_back(msg);
-    
-}
-
-
-void go(int motor){
-    
-    I2CMessage* msg = new I2CMessage(motor);
-
-    msg->buffer.push_back(10);                         // instruction byte
-    
-    I2CMessages.push_back(msg);
-    
-    //rt_printf("go!\n");
-
-}
+/*void Axis::setPosition(int address, int position){
+	i2c.write(address, {
+		0x1, 					// instruction
+		highest_byte(position),
+		higher_byte(position),
+		high_byte(position),
+		low_byte(position)
+	});
+	// TODO: go
+}*/
