@@ -41,6 +41,9 @@ class Motor{
 		void go();
 		void stopNow();
 		
+		int lastPosition;
+		bool waveSet;
+		
 	private:
 		int address;
 		int status;

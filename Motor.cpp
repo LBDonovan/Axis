@@ -104,6 +104,7 @@ void Motor::setPosition(int position){
 		high_byte(position*direction),
 		low_byte(position*direction)
 	});
+	lastPosition = position;
 }
 void Motor::setVelocity(int velocity){
 	i2c.write(address, {

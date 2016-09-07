@@ -38,7 +38,7 @@ void render(BelaContext *context, void *userData)
 {
 	for (unsigned int n=0; n<context->audioFrames; n++){
 		
-		if (requestCount++ > 4410){
+		if (requestCount++ > 441){
 			requestCount = 0;
 			for (int i=0; i<NUM_MOTORS; i++){
 				motors[i].requestStatus();
@@ -76,7 +76,7 @@ void render(BelaContext *context, void *userData)
 		    }
 		} else if (gState == 4){
 			rt_printf("STARTING WAVE!\n");
-			startWaveMotion(5, 8300);
+			startWaveMotion(8300/2);
 			gState += 1;
 		} else if (gState == 5){
 			waveMotion(44100/8);
