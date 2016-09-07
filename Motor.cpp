@@ -141,10 +141,10 @@ void Motor::setMicrostepping(int microstepping){
 void Motor::setOffset(int offset){
 	i2c.write(address, {
 		HOMING_OFFSET_INSTRUCTION,
-		highest_byte(offset),
-		higher_byte(offset),
-		high_byte(offset),
-		low_byte(offset)
+		highest_byte(offset*direction),
+		higher_byte(offset*direction),
+		high_byte(offset*direction),
+		low_byte(offset*direction)
 	});
 	go();
 }
