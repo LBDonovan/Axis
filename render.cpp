@@ -75,15 +75,11 @@ void render(BelaContext *context, void *userData)
 		        gState += 1;
 		    }
 		} else if (gState == 4){
-			rt_printf("SETTING VELOCITIES!\n");
-			setRatioVelocity(100, 1.618);
-			goAll();
+			rt_printf("STARTING WAVE!\n");
+			startWaveMotion(5, 8300);
 			gState += 1;
-			waitCount = 0;
 		} else if (gState == 5){
-			if (waitCount++ > 44100*60){
-		        gState = 0;
-		    }
+			waveMotion(44100/8);
 		}
 		
 	}

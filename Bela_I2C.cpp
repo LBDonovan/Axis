@@ -6,7 +6,7 @@ void Bela_I2C::sendQueue(void* ptr){
     Bela_I2C *instance = (Bela_I2C*)ptr;
     while(!instance->outQueue.empty()){
         Bela_I2C_Message mes = instance->outQueue.front();
-        // printf("writetask: sending instruction %i to address %i\n", mes.buffer[0], mes.address);
+        // rt_printf("writetask: sending instruction %i to address %i\n", mes.buffer[0], mes.address);
         int ret = ::write(instance->devices[mes.address], &mes.buffer[0], mes.bufferLength);
         if (ret != mes.bufferLength) {
             printf("Unable to send message to device %i with error %i\n", mes.address, ret);
