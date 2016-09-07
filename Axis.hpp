@@ -45,3 +45,42 @@ void setRatioVelocity(int velocity, float ratio){
 	}
 }
 
+// Set all motors to turn at the same rate, but the plates to turn in alternating directions.
+void setConstantVelocity_Alternating(int base) {
+	for (int i = 0; i < NUM_MOTORS / 2; i++) {
+		if (i % 2 == 0) {
+			motors[i].setVelocity(base * -1);
+		} else {
+			motors[i].setVelocity(base);
+		}
+	}
+} 
+
+// Set all motors to turn at the same rate in the same direction.
+void setConstantVelocity(int base) {
+	for (int i = 0; i < NUM_MOTORS / 2; i++) {
+		motors[i].setVelocity(base);
+	}
+}
+
+// Set motors 0-9 in one direction, and 10-19 in the other 
+void setRatioVelocity_AlternatingHalves(int velocity, float ratio) {
+	int initialVelocity = velocity;
+	for (int i = 0; i < NUM_MOTORS; i++) {
+			motors[i].setVelocity(velocity * -1);
+			motors[(NUM_MOTORS - 1) - i].setVelocity(velocity);
+			velocity *= ratio;
+		} 
+}
+
+
+
+void setRatioVelocity_AlternatingFromMiddle(int velocity, float ratio) {
+	for (int i = 0; i < NUM_MOTORS / 2; i++) {
+		int j = NUM_MOTORS - (i + 1);
+			velocity *= -1;
+			motors[i].setVelocity(velocity);
+			motors[j].setVelocity(velocity);
+			velocity *= ratio;
+		} 
+}

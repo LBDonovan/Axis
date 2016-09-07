@@ -13,11 +13,13 @@
 #define PHI 1.6180339887
 #define phi 0.6180339887
 
+extern int NUM_MOTORS;
 int gState = 0;
 int requestCount = 0;
-int waitCount = 0;
+int gWaitCount = 0;
 int gSecondsToWait;
-int gStateAfterWait;
+int gNextState;
+int gLastState;
 int gMvt1State = 0;
 int gTicker = 0;
 
@@ -77,11 +79,14 @@ void render(BelaContext *context, void *userData)
 		// State 2: Waits for the offsets to finish.
 		} else if (gState == 2){
 			if (allIdle()){
-				gState = 3;
+				
 				waitCount = 0;
 				// These two variables dictate what happens during the Wait State, and where it goes after:
 				gSecondsToWait = 2;
+				// Right now it's just going to state 4; it could go anywhere.
+				gLastState = gState;
 				gNextState = 4;
+				gState = 3;
 			}
 		// State 3: WAIT STATE.
 		// Waits gSecondsToWait seconds, then moves to gNextState state.
@@ -95,7 +100,7 @@ void render(BelaContext *context, void *userData)
 			rt_printf("SETTING VELOCITIES!\n");
 			setRatioVelocity(100, 1.618);
 			goAll();
-			waitCount = 0;
+			gWaitCount = 0;
 			// Set wait interval, and following state
 			gSecondsToWait = 60;
 			gNextState = 6;
@@ -116,20 +121,22 @@ void render(BelaContext *context, void *userData)
 					motors[i].setVelocity(100);
 				}
 				gMvt1State = 1;	
-				gTicker = 0;
+				gWaitCount = 0;
 			} 
 			else {
-				if (gTicker < NUM_MOTORS / 2) {
+				if (gWaitCount < NUM_MOTORS / 2) {
 					motor[counter].go();
-					gTicker += 1;
-					gNextState = 6; // return to this state next time
+					gWaitCount += 1;
+					gNextState = 5; // return to this state next time
+					gLastState = gState; // store this state as the last one
 					gSecondsToWait = 0.25; // wait 11025 samples, 1/4 of a second
-					gState = 3;
+					gState = 3; // Go to wait state
 				} else {
 					// If the counter has addressed and started all motors, let it spin for 60 seconds, then pause.
 					// After pause, go to State 6.
 					gSecondsToWait = 60;
-					gNextState = 7;
+					gLastState = gState;
+					gNextState = gState + 1;
 					gState = 3;
 				}
 			}
@@ -140,7 +147,9 @@ void render(BelaContext *context, void *userData)
 		// Velocity: Ratio
 		// Start: Simultaneous
 		else if (gState == 6) {
-
+			setRatioVelocity(100, phi);
+			goAll();
+			// When does it stop, and how do they all stop at the right place?
 		}
 
 		// STATE 7: Movement 3
@@ -148,23 +157,31 @@ void render(BelaContext *context, void *userData)
 		// Velocity: Same
 		// Start: Simultaneous
 		else if (gState == 7) {
-			
+			setConstantVelocity_Alternating(100);
+			goAll();
+			// Wait for 90 seconds
+			// Make all stop
 		}
 
 		// STATE 8: Movement 4:
 		// Direction: Half 1, half -1
-		// Velocity: Ratio
+		// Velocity: Multiple
 		// Start: Simultaneous
+		// Inside ones the fastest, outer the slowest
 		else if (gState == 8) {
-			
+			setRatioVelocity_AlternatingHalves(100, phi);
+			goAll();
+			// Make it stop!!
 		}
 
 		// STATE 9: MOVEMENT 5
 		// Direction: Alternating
 		// Velocity: ratio
 		// Start: simultaneous
-		else if (gState == 9) {
-			
+		else if (gState == 9) {	
+			setConstantVelocity_Alternating(100, phi);
+			goAll();
+			// OH GOD MAKE IT STOP
 		}
 
 		// STATE 10: MOVEMENT 6
@@ -172,7 +189,20 @@ void render(BelaContext *context, void *userData)
 		// Velocity: ratio
 		// Start: simultaneous
 		else if (gState == 10) {
-			
+			setConstantVelocity(100);
+			goAll();
+			// WE SHALL NEVER BE STILL AGAIN
+		}
+		// State 99: BURN IT ALL DOWN (aka stop everything)
+		else if (gState == 99) {
+			for (int i = 0; i < NUM_MOTORS; i++) {
+				motors[i].stopNow();
+			}
+			// Wait for half a second, then go to gNextState.
+			gNextState = gLastState + 1;
+			gLastState = gState;
+			gSecondsToWait = 2;
+			gState = 3;
 		}
 
 		
