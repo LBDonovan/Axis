@@ -6,6 +6,7 @@
 Bela_I2C i2c;
 
 Motor motors[NUM_MOTORS];
+
 int offsets[NUM_MOTORS] = {1300, 7180, 960, -1530, -7980, -6060, -2510, 2890, -4376, 7790, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50};
 
 // utility functions
@@ -24,7 +25,7 @@ bool allIdle(){
 	return true;
 }
 
-// movements
+// Utilities
 void setRandomPosition(int scale){
 	for (int i=0; i<NUM_MOTORS/2; i++){
 		int pos = (int)(((float)(rand())/(float)(RAND_MAX))*(float)(scale)) - scale/2;
@@ -37,10 +38,10 @@ void setMultipleVelocity(int base){
 		motors[i].setVelocity(base*(i+1));
 	}
 }
-void setRatioVelocity(int base, float ratio){
-	int pos = base;
+void setRatioVelocity(int velocity, float ratio){
 	for (int i=0; i<NUM_MOTORS/2; i++){
-		motors[i].setVelocity(pos);
-		pos *= ratio;
+		motors[i].setVelocity(velocity);
+		velocity *= ratio;
 	}
 }
+
