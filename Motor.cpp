@@ -33,10 +33,17 @@ bool Motor::setup(int adr){
 }
 
 void Motor::setStatus(int newStatus){
-	status = newStatus;
+	if (newStatus == -1 || statusHolds == 0){
+		status = newStatus;
+	} else if (statusHolds > 0){
+		statusHolds -= 1;
+	}
 }
 int Motor::getStatus(){
 	return status;
+}
+void Motor::holdStatus(int numTimes){
+	statusHolds = numTimes;
 }
 void Motor::requestStatus(){
 	i2c.request(address, 1);
@@ -54,10 +61,19 @@ char Motor::low_byte(int in){
 	return (char)(in & 0xFF);
 }
 
+void Motor::reset(){
+	setMicrostepping(32);
+	setMaxVelocity(200*32);
+	setAcceleration(200*32);
+	go();
+}
+void Motor::zero(){
+	setOffset(lastPosition+1);
+}
+
 bool Motor::home(){
 	if (!homing){
-		setMaxVelocity(HOMING_VELOCITY);
-		setMicrostepping(32);
+		rt_printf("%i setting homing %i\n", HOMING_VELOCITY);
 		i2c.write(address, {
 			HOMING_INSTRUCTION,
 			high_byte(HOMING_VELOCITY*direction),

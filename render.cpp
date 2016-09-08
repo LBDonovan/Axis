@@ -15,7 +15,12 @@ int requestCount = 0;
 int waitCount = 0;
 
 void receiveCallback (int address, std::vector<char> buffer){
-	//rt_printf("%i: %i\n", address, (int)buffer[0]);
+	if (buffer.size() != 1){
+		rt_printf("AAARGH %i", address);
+	}
+	/*if (gState == 6){
+		printf("%i: %i\n", address-1, (int)buffer[0]);
+	}*/
 	motors[address-1].setStatus((int)buffer[0]);
 }
 
@@ -41,7 +46,7 @@ void render(BelaContext *context, void *userData)
 		
 		mainCount++;
 		
-		if (requestCount++ > 441){
+		if (requestCount++ > 4410){
 			requestCount = 0;
 			for (int i=0; i<NUM_MOTORS; i++){
 				motors[i].requestStatus();
@@ -49,6 +54,15 @@ void render(BelaContext *context, void *userData)
 		}
 		
 		if (gState == 0){
+			resetAll();
+			zeroAll();
+			waitCount = 0;
+			gState += 1;
+		} else if (gState == 1){
+		    if (waitCount++ > 4410){
+		        gState += 1;
+		    }
+		} else if (gState == 2){
 			bool homed = true;
 			for (int i=0; i<NUM_MOTORS; i++){
 				if (!motors[i].home()){
@@ -65,44 +79,139 @@ void render(BelaContext *context, void *userData)
 				}
 				gState += 1;
 			}
-		} else if (gState == 1){
+		} else if (gState == 3){
 			rt_printf("SETTING OFFSETs\n");
 			for (int i=0; i<NUM_MOTORS; i++){
 				motors[i].setOffset(offsets[i]);
 			}
 			gState += 1;
-		} else if (gState == 2){
-			if (allIdle()){
-				gState += 1;
-				waitCount = 0;
-			}
-		} else if (gState == 3){
-		    if (waitCount++ > 44100){
-		        gState = 7;
-		    }
-		/*} else if (gState == 4){
-			rt_printf("STARTING WAVE!\n");
-			startWaveMotion(8300/2);
-			gState += 1;
-		} else if (gState == 5){
-			waveMotion(44100/8);*/
 		} else if (gState == 4){
-			rt_printf("EDMARK!\n");
-			edmark();
-			gState += 1;
-		} else if (gState == 5){
 			if (allIdle()){
-				gState += 1;
+				gState = 15;	// STATE!
 				waitCount = 0;
 			}
-		} else if (gState == 6){
+		} else if (gState == 5){
 		    if (waitCount++ > 44100){
 		        gState += 1;
 		    }
+		} else if (gState == 6){
+			rt_printf("EDMARK!\n");
+			edmark();
+			holdStatusAll(10);
+			gState += 1;
 		} else if (gState == 7){
-		    setMultiplePosition(ONE_TURN, 500);
+			if (allIdle()){
+				gState += 1;
+				waitCount = 0;
+				zeroAll();
+			}
+		} else if (gState == 8){
+		    if (waitCount++ > 44100){
+		        gState += 1;
+		    }
+		} else if (gState == 9){
+			rt_printf("setMultiplePosition!\n");
+			setMultiplePosition(ONE_TURN, 500);
+			goAll();
+			holdStatusAll(1);
+			gState += 1;
+		} else if (gState == 10){
+			if (allIdle()){
+				gState += 1;
+				waitCount = 0;
+				resetAll();
+			}
+		} else if (gState == 11){
+		    if (waitCount++ > 4410){
+		        gState += 1;
+		        zeroAll();
+		        waitCount = 0;
+		    }
+		} else if (gState == 12){
+		    if (waitCount++ > 4410){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 13){
+			rt_printf("STARTING WAVE!\n");
+			startWaveMotion(ONE_TURN/2, 3, true);
+			gState += 1;
+		} else if (gState == 14){
+			waveMotion(44100/8);
+			if (allIdle()){
+				gState = 0;
+			} else {
+				if (!(mainCount%44100)){
+					for (int i=0; i<NUM_MOTORS; i++){
+						rt_printf("%i: %i\n", i, motors[i].getStatus());
+					}
+				}
+			}
+		} else if (gState == 15){
+		    if (waitCount++ > 4410){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 16){
+		    setRandomPosition(ONE_TURN/32, ONE_TURN/2);
 		    goAll();
+		    holdStatusAll(10);
 		    gState += 1;
+		} else if (gState == 17){
+		    if (allIdle()){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 18){
+		    if (waitCount++ > 3*44100/2){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 19){
+		    setAllPosition(0);
+		    goAll();
+		    holdStatusAll(10);
+		    gState += 1;
+		    waitCount = 0;
+		} else if (gState == 20){
+		    if (allIdle()){
+		        gState += 1;
+		    }
+		} else if (gState == 21){
+		    if (waitCount++ > 3*44100/2){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 22){
+		    setSpiralPosition(200*32/12, 200*32);
+		    goAll();
+		    holdStatusAll(10);
+		    gState += 1;
+		} else if (gState == 23){
+		    if (allIdle()){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 24){
+		    if (waitCount++ > 3*44100/2){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 25){
+		    setAllPosition(ONE_TURN);
+		    goAll();
+		    holdStatusAll(10);
+		    gState += 1;
+		    waitCount = 0;
+		} else if (gState == 26){
+		    if (allIdle()){
+		        gState += 1;
+		    }
+		} else if (gState == 27){
+		    if (waitCount++ > 3*44100/2){
+		        gState = 16;
+		        waitCount = 0;
+		    }
 		}
 		
 	}

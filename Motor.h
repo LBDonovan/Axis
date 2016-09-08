@@ -16,11 +16,12 @@ extern Bela_I2C i2c;
 
 class Motor{
 	public:
-		Motor():homing(false), status(-1){}
+		Motor():homing(false), status(-1), statusHolds(0){}
 		
 		bool setup(int address);
 		
 		void setStatus(int status);
+		void holdStatus(int numTimes);
 		int getStatus();
 		void requestStatus();
 		
@@ -40,13 +41,17 @@ class Motor{
 		
 		void go();
 		void stopNow();
+		void reset();
+		void zero();
 		
 		int lastPosition;
-		bool waveSet;
+		int waveInterations;
+		bool finishedWave;
 		
 	private:
 		int address;
 		int status;
+		int statusHolds;
 		int direction;
 		
 		char highest_byte(int);
