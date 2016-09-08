@@ -80,6 +80,7 @@ bool Motor::home(){
 			low_byte(HOMING_VELOCITY*direction)
 		});
 		status = -1;
+		holdStatus(1);
 		homing = true;
 		homed = false;
 		reHomeSeeking = false;

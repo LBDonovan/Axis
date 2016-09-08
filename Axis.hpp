@@ -49,10 +49,13 @@ void resetAll(){
 }
 
 // movements
-void setAllPosition(int pos){
+void setAllPosition(int pos, bool alternating){
+	int position = pos;
 	for (int i=0; i<NUM_MOTORS; i++){
-		//motors[i].setAcceleration(200*32);
-		motors[i].setPosition(0);
+		if (alternating){
+			position *= -1;
+		}
+		motors[i].setPosition(position);
 	}
 }
 void setRandomPosition(int min, int max){
@@ -101,40 +104,89 @@ void setSpiralPosition(int base, int velocity){
 		motors[i].setPosition(pos);
 	}
 }
-void setMultiplePosition(int base, int velocity){
-	for (int i=0; i<NUM_MOTORS/2; i++){
-		int vel = velocity*(i+1);
-		int pos = base*(i+1);
-		if (vel > 2000 && vel < 4000){
-			motors[i].setMicrostepping(16);
-			vel /= 2;
-			pos /= 2;
-		} else if (vel >= 4000){
-			motors[i].setMicrostepping(8);
-			vel /= 4;
-			pos /= 4;
-		} else {
-			motors[i].setMicrostepping(32);
+void setMultiplePosition(int base, int velocity, bool central, bool alternating){
+	if (!central){
+		for (int i=0; i<NUM_MOTORS/2; i++){
+			int vel = velocity*(NUM_MOTORS/2-i);
+			int pos = base*(NUM_MOTORS/2-i);
+			if (vel > 2000 && vel < 4000){
+				motors[i].setMicrostepping(16);
+				vel /= 2;
+				pos /= 2;
+			} else if (vel >= 4000){
+				motors[i].setMicrostepping(8);
+				vel /= 4;
+				pos /= 4;
+			} else {
+				motors[i].setMicrostepping(32);
+			}
+			if (alternating && !(i%2)){
+				pos *= -1;
+			}
+			rt_printf("%i, pos: %i, vel: %i\n", i, pos, vel);;
+			motors[i].setAcceleration(vel);
+			motors[i].setMaxVelocity(vel);
+			motors[i].setPosition(pos);
 		}
-		//rt_printf("%i, pos: %i, vel: %i\n", i, pos, vel);;
-		motors[i].setAcceleration(vel);
-		motors[i].setMaxVelocity(vel);
-		motors[i].setPosition(pos);
-	}
-	for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
-		int vel = velocity*(NUM_MOTORS-i);
-		int pos = base*(NUM_MOTORS-i);
-		if (vel > 2000){
-			motors[i].setMicrostepping(16);
-			vel /= 2;
-			pos /= 2;
-		} else {
-			motors[i].setMicrostepping(32);
+		for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
+			int vel = velocity*(i-NUM_MOTORS/2);
+			int pos = base*(i-NUM_MOTORS/2);
+			if (vel > 2000){
+				motors[i].setMicrostepping(16);
+				vel /= 2;
+				pos /= 2;
+			} else {
+				motors[i].setMicrostepping(32);
+			}
+			if (alternating && (i%2)){
+				pos *= -1;
+			}
+			rt_printf("%i, pos: %i\n", i, pos);
+			motors[i].setAcceleration(vel);
+			motors[i].setMaxVelocity(vel);
+			motors[i].setPosition(pos);
 		}
-		//rt_printf("%i, pos: %i\n", i, pos);
-		motors[i].setAcceleration(vel);
-		motors[i].setMaxVelocity(vel);
-		motors[i].setPosition(pos);
+	} else {
+		for (int i=0; i<NUM_MOTORS/2; i++){
+			int vel = velocity*(i+1);
+			int pos = base*(i+1);
+			if (vel > 2000 && vel < 4000){
+				motors[i].setMicrostepping(16);
+				vel /= 2;
+				pos /= 2;
+			} else if (vel >= 4000){
+				motors[i].setMicrostepping(8);
+				vel /= 4;
+				pos /= 4;
+			} else {
+				motors[i].setMicrostepping(32);
+			}
+			if (alternating && !(i%2)){
+				pos *= -1;
+			}
+			//rt_printf("%i, pos: %i, vel: %i\n", i, pos, vel);;
+			motors[i].setAcceleration(vel);
+			motors[i].setMaxVelocity(vel);
+			motors[i].setPosition(pos);
+		}
+		for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
+			int vel = velocity*(NUM_MOTORS-i);
+			int pos = base*(NUM_MOTORS-i);
+			if (vel > 2000){
+				motors[i].setMicrostepping(16);
+				vel /= 2;
+				pos /= 2;
+			} else {
+				motors[i].setMicrostepping(32);
+			}
+			if (alternating && (i%2)){
+				pos *= -1;
+			}
+			//rt_printf("%i, pos: %i\n", i, pos);
+			motors[i].setAcceleration(vel);
+			motors[i].setMaxVelocity(vel);
+			motors[i].setPosition(pos);
+		}
 	}
 }
 void setRatioVelocity(int base, float ratio){
@@ -154,11 +206,11 @@ void setRatioVelocity(int base, float ratio){
 
 int waveCount, wavePosition, waveIndex, waveInterations;
 bool waveAlternating;
-void startWaveMotion(int position, int iterations, bool alternating){
+void startWaveMotion(int position, int iterations, bool alternating, int velocity, int acceleration){
 	for (int i=0; i<NUM_MOTORS; i++){
 		motors[i].setMicrostepping(32);
-		motors[i].setAcceleration(200*32);
-		motors[i].setMaxVelocity(800*32);
+		motors[i].setAcceleration(acceleration);
+		motors[i].setMaxVelocity(velocity);
 		motors[i].setStatus(-1);
 		motors[i].waveInterations = 0;
 		motors[i].finishedWave = false;
@@ -166,6 +218,7 @@ void startWaveMotion(int position, int iterations, bool alternating){
 	motors[0].setPosition(position);
 	motors[0].go();
 	motors[0].holdStatus(5);
+	motors[0].waveInterations += 1;
 	waveIndex = 0;
 	waveCount = 0;
 	wavePosition = position;
@@ -185,6 +238,7 @@ void waveMotion(int interval){
 			}
 			motors[waveIndex].go();
 			motors[waveIndex].holdStatus(5);
+			motors[waveIndex].waveInterations += 1;
 			//rt_printf("going: %i %i %i\n", waveIndex, wavePosition, waveCount);
 		}
 		waveCount = 0;
@@ -192,12 +246,14 @@ void waveMotion(int interval){
 
 	for (int i=0; i<NUM_MOTORS; i++){
 		if (waveIndex >= i && motors[i].getStatus() == 0 && !motors[i].finishedWave){
-			if (motors[i].waveInterations >= waveInterations){
+			if (waveInterations == 1){
+				
+			} else if (motors[i].waveInterations >= waveInterations){
 				motors[i].setPosition(0);
 				motors[i].go();
 				motors[i].finishedWave = true;
 			} else {
-				//rt_printf("setting %i to %i %i\n", i, motors[i].lastPosition * -1, motors[i].getStatus());
+				rt_printf("setting %i to %i %i\n", i, motors[i].lastPosition * -1, motors[i].getStatus());
 				motors[i].setPosition(motors[i].lastPosition * -1);
 				motors[i].go();
 				motors[i].waveInterations += 1;

@@ -55,9 +55,9 @@ void render(BelaContext *context, void *userData)
 		
 		if (gState == 0){
 			resetAll();
-			zeroAll();
 			waitCount = 0;
 			gState += 1;
+			zeroAll();
 		} else if (gState == 1){
 		    if (waitCount++ > 4410){
 		        gState += 1;
@@ -87,10 +87,10 @@ void render(BelaContext *context, void *userData)
 			gState += 1;
 		} else if (gState == 4){
 			if (allIdle()){
-				gState = 15;	// STATE!
+				gState = 33;	// STATE!
 				waitCount = 0;
 			}
-		} else if (gState == 5){
+		} else if (gState == 5){	// EDMARK
 		    if (waitCount++ > 44100){
 		        gState += 1;
 		    }
@@ -109,9 +109,9 @@ void render(BelaContext *context, void *userData)
 		    if (waitCount++ > 44100){
 		        gState += 1;
 		    }
-		} else if (gState == 9){
+		} else if (gState == 9){	// MULTPLE POSITION
 			rt_printf("setMultiplePosition!\n");
-			setMultiplePosition(ONE_TURN, 500);
+			setMultiplePosition(ONE_TURN, 500, false, false);
 			goAll();
 			holdStatusAll(1);
 			gState += 1;
@@ -132,9 +132,9 @@ void render(BelaContext *context, void *userData)
 		        gState += 1;
 		        waitCount = 0;
 		    }
-		} else if (gState == 13){
+		} else if (gState == 13){	// WAVE
 			rt_printf("STARTING WAVE!\n");
-			startWaveMotion(ONE_TURN/2, 3, true);
+			startWaveMotion(ONE_TURN/2, 3, true, 800*32, 200*32);
 			gState += 1;
 		} else if (gState == 14){
 			waveMotion(44100/8);
@@ -152,7 +152,7 @@ void render(BelaContext *context, void *userData)
 		        gState += 1;
 		        waitCount = 0;
 		    }
-		} else if (gState == 16){
+		} else if (gState == 16){	// RANDOM SMALL MOVEMENTS
 		    setRandomPosition(ONE_TURN/32, ONE_TURN/2);
 		    goAll();
 		    holdStatusAll(10);
@@ -168,7 +168,7 @@ void render(BelaContext *context, void *userData)
 		        waitCount = 0;
 		    }
 		} else if (gState == 19){
-		    setAllPosition(0);
+		    setAllPosition(0, false);
 		    goAll();
 		    holdStatusAll(10);
 		    gState += 1;
@@ -183,7 +183,7 @@ void render(BelaContext *context, void *userData)
 		        waitCount = 0;
 		    }
 		} else if (gState == 22){
-		    setSpiralPosition(200*32/12, 200*32);
+		    setSpiralPosition(200*32/12, 300*32);
 		    goAll();
 		    holdStatusAll(10);
 		    gState += 1;
@@ -198,7 +198,7 @@ void render(BelaContext *context, void *userData)
 		        waitCount = 0;
 		    }
 		} else if (gState == 25){
-		    setAllPosition(ONE_TURN);
+		    setAllPosition(ONE_TURN, false);
 		    goAll();
 		    holdStatusAll(10);
 		    gState += 1;
@@ -211,6 +211,38 @@ void render(BelaContext *context, void *userData)
 		    if (waitCount++ > 3*44100/2){
 		        gState = 16;
 		        waitCount = 0;
+		    }
+		} else if (gState == 28){	// WAVE SLOW
+			rt_printf("STARTING WAVE!\n");
+			startWaveMotion(ONE_TURN, 1, false, 50*32, 50*32);
+			gState += 1;
+		} else if (gState == 29){
+			waveMotion(3*44100/4);
+			if (allIdle()){
+				gState = 0;
+			}
+		} else if (gState == 30){
+		    if (waitCount++ > 4410){
+		        gState += 1;
+		        waitCount = 0;
+		    }
+		} else if (gState == 31){	// CONSTANT ALTERNATING
+			setAllPosition(ONE_TURN*4, true);
+			goAll();
+			holdStatusAll(10);
+			gState += 1;
+		} else if (gState == 32){
+		    if (allIdle()){
+		        gState = 0;
+		    }
+		} else if (gState == 33){	// CENTRAL MULTIPLE
+			setMultiplePosition(ONE_TURN, 500, true, true);
+			goAll();
+			holdStatusAll(10);
+			gState += 1;
+		} else if (gState == 34){
+		    if (allIdle()){
+		        gState = 0;
 		    }
 		}
 		
