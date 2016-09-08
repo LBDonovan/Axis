@@ -56,6 +56,8 @@ char Motor::low_byte(int in){
 
 bool Motor::home(){
 	if (!homing){
+		setMaxVelocity(HOMING_VELOCITY);
+		setMicrostepping(32);
 		i2c.write(address, {
 			HOMING_INSTRUCTION,
 			high_byte(HOMING_VELOCITY*direction),
@@ -73,6 +75,7 @@ bool Motor::home(){
 			setPosition(200*32);
 			go();
 			reHomeSeeking = true;
+			rt_printf("rehome seeking: %i\n", address);
 		} else if (!homed && !reHomeSeeking && homingIterations >= 22050 && status == 0){
 			homed = true;
 			rt_printf("%i homed in %fs\n", address, (float)homingIterations/44100.0f);
@@ -84,6 +87,16 @@ bool Motor::home(){
 			});
 			status = -1;
 			reHomeSeeking = false;
+			rt_printf("rehoming: %i\n", address);
+		} else if (reHomeSeeking && homingIterations > 44100*10 && status == 1){
+			i2c.write(address, {
+				HOMING_INSTRUCTION,
+				high_byte(HOMING_VELOCITY*direction),
+				low_byte(HOMING_VELOCITY*direction)
+			});
+			status = -1;
+			reHomeSeeking = false;
+			rt_printf("force rehoming: %i\n", address);
 		}
 		
 		homingIterations += 1;
@@ -163,6 +176,7 @@ void Motor::stopNow(){
 		0
 	};
 	i2c.writeNow(address, buffer, 5);
+	usleep(1000);
 	char buf[1] = {GO_INSTRUCTION};
 	i2c.writeNow(address, buf, 1);
 }

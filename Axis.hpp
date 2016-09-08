@@ -1,9 +1,12 @@
 /***** Axis.hpp *****/
 #include <cstdlib>
+#include <cmath>
 
 #define NUM_MOTORS 20
 
 Bela_I2C i2c;
+
+#define ONE_TURN 200*32*36/14
 
 Motor motors[NUM_MOTORS];
 int offsets[NUM_MOTORS] = {1300, 7180, 960, -1530, -7980, -6060, -2510, 2890, -4376, 7790, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50};
@@ -42,12 +45,35 @@ void setMultipleVelocity(int base){
 		rt_printf("%i, vel: %i\n", i, base*(i+1));
 		motors[i].setVelocity(base*(i+1));
 	}
+	for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
+		rt_printf("%i, vel: %i\n", i, base*(NUM_MOTORS-i));
+		motors[i].setVelocity(base*(NUM_MOTORS-i));
+	}
+}
+void setMultiplePosition(int base, int velocity){
+	for (int i=0; i<NUM_MOTORS/2; i++){
+		rt_printf("%i, pos: %i\n", i, base*(i+1));
+		motors[i].setMaxVelocity(velocity*(i+1));
+		motors[i].setPosition(base*(i+1));
+	}
+	for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
+		rt_printf("%i, pos: %i\n", i, base*(NUM_MOTORS-i));
+		motors[i].setMaxVelocity(velocity*(NUM_MOTORS-i));
+		motors[i].setPosition(base*(NUM_MOTORS-i));
+	}
 }
 void setRatioVelocity(int base, float ratio){
-	int pos = base;
+	int pos;
 	for (int i=0; i<NUM_MOTORS/2; i++){
+		pos = base * powf(ratio, i);
 		motors[i].setVelocity(pos);
-		pos *= ratio;
+		rt_printf("%i, vel: %i\n", i, pos);
+	}
+	//pos = base;
+	for (int i=NUM_MOTORS/2; i<NUM_MOTORS; i++){
+		pos = base * powf(ratio, NUM_MOTORS-1-i);
+		motors[i].setVelocity(pos);
+		rt_printf("%i, vel: %i\n", i, pos);
 	}
 }
 
@@ -85,7 +111,16 @@ void waveMotion(int interval){
 	
 }
 
-
+void edmark(){
+	int turn = 200*32*36/14;
+	rt_printf("%i\n", turn);
+	for (int i=0; i<NUM_MOTORS; i++){
+		motors[i].setPosition(((int)(turn*i*0.618))%((int)turn));	// 1.61803398875 ?
+		//motors[i].setPosition(((int)(turn*(int)(i/2)*0.618))%((int)turn));
+		//motors[i].setPosition(turn*i*0.618);
+	}
+	goAll();
+}
 
 
 

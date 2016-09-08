@@ -34,9 +34,12 @@ bool setup(BelaContext *context, void *userData)
 	return true;
 }
 
+long mainCount;
 void render(BelaContext *context, void *userData)
 {
 	for (unsigned int n=0; n<context->audioFrames; n++){
+		
+		mainCount++;
 		
 		if (requestCount++ > 441){
 			requestCount = 0;
@@ -50,6 +53,9 @@ void render(BelaContext *context, void *userData)
 			for (int i=0; i<NUM_MOTORS; i++){
 				if (!motors[i].home()){
 					homed = false;
+					if (!(mainCount%44100)){
+						//rt_printf("not homed: %i\n", i);
+					}
 				}
 			}
 			if (homed){
@@ -71,15 +77,32 @@ void render(BelaContext *context, void *userData)
 				waitCount = 0;
 			}
 		} else if (gState == 3){
-		    if (waitCount++ > 44100*2){
-		        gState += 1;
+		    if (waitCount++ > 44100){
+		        gState = 7;
 		    }
-		} else if (gState == 4){
+		/*} else if (gState == 4){
 			rt_printf("STARTING WAVE!\n");
 			startWaveMotion(8300/2);
 			gState += 1;
 		} else if (gState == 5){
-			waveMotion(44100/8);
+			waveMotion(44100/8);*/
+		} else if (gState == 4){
+			rt_printf("EDMARK!\n");
+			edmark();
+			gState += 1;
+		} else if (gState == 5){
+			if (allIdle()){
+				gState += 1;
+				waitCount = 0;
+			}
+		} else if (gState == 6){
+		    if (waitCount++ > 44100){
+		        gState += 1;
+		    }
+		} else if (gState == 7){
+		    setMultiplePosition(ONE_TURN, 500);
+		    goAll();
+		    gState += 1;
 		}
 		
 	}
@@ -89,6 +112,7 @@ void cleanup(BelaContext *context, void *userData)
 {
 	for (int i=0; i<NUM_MOTORS; i++){
 		motors[i].stopNow();
+		usleep(1000);
 	}
 	i2c.cleanup();
 }

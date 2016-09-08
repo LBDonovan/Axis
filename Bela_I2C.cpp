@@ -14,6 +14,7 @@ void Bela_I2C::sendQueue(void* ptr){
             //printf("sent: %i\n", ret);
         }
         instance->outQueue.pop();
+        usleep(1000);
     }
 }
 void Bela_I2C::receiveQueue(void* ptr){
